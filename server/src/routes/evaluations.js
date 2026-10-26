@@ -16,19 +16,41 @@ const EXAMPLE = {
 };
 
 /**
- * Called by the external application: GET (or POST) with a JSON body
- * { "evaluations": [ { "studentName", "testDate", "percentage", "testName"? } ] }.
- * No headers or query parameters. All-or-nothing: if any record is invalid,
- * nothing is saved and every problem is listed.
+ * The evaluations JSON, from the `data` query parameter if present, otherwise
+ * from the request body. Returns { payload } or { error }.
+ */
+function readPayload(req) {
+  const { data } = req.query;
+  if (data !== undefined) {
+    if (typeof data !== 'string') return { error: 'Send the "data" query parameter only once.' };
+    try {
+      return { payload: JSON.parse(data) };
+    } catch {
+      return {
+        error: 'The "data" query parameter is not valid JSON. URL-encode it, e.g. with encodeURIComponent(JSON.stringify(payload)).',
+      };
+    }
+  }
+  if (req.body !== undefined) return { payload: req.body };
+  return {
+    error: 'No evaluations received. Send them as JSON in the "data" query parameter (?data=...) or in the request body.',
+  };
+}
+
+/**
+ * Called by the external application:
+ *   GET /api/evaluations?data=<URL-encoded JSON>, or GET/POST with a JSON body.
+ * JSON: { "evaluations": [ { "studentName", "testDate", "percentage", "testName"? } ] }.
+ * No headers needed. All-or-nothing: if any record is invalid, nothing is
+ * saved and every problem is listed.
  */
 async function saveEvaluations(req, res) {
-  if (req.body === undefined) {
-    return res.status(400).json({
-      error: 'No JSON body received. Send the evaluations as JSON in the request body.',
-      example: EXAMPLE,
-    });
-  }
-  const { records, errors } = validateEvaluations(req.body);
+  // A GET that writes data must never be answered from a cache.
+  res.set('Cache-Control', 'no-store');
+  const { payload, error } = readPayload(req);
+  if (error) return res.status(400).json({ error, example: EXAMPLE });
+
+  const { records, errors } = validateEvaluations(payload);
   if (errors) {
     return res.status(422).json({ error: 'Validation failed. Nothing was saved.', details: errors });
   }

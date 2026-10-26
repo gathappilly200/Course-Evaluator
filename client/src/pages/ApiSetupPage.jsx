@@ -25,10 +25,16 @@ const FIELDS = [
   ['testName', 'string', 'No', 'Name of the test, e.g. "Unit Test 4". Needed if a student can take two tests on the same day.'],
 ];
 
+// Vercel rejects URLs whose path + query exceed 32,768 characters (measured).
+const URL_LIMIT_NOTE =
+  'URLs are limited to about 32,000 characters, which is roughly 200 evaluations per request. ' +
+  'For more, split them across several requests, or send the JSON in the request body instead.';
+
 const STATUS_CODES = [
   ['200', 'Saved. The response counts new, updated and unchanged results.'],
-  ['400', 'No body was received, or the body is not valid JSON.'],
-  ['413', 'The body is larger than 4 MB. Split the evaluations across several requests.'],
+  ['400', 'No evaluations received, or the data is not valid JSON (check it is URL-encoded).'],
+  ['413', 'The request body is larger than 4 MB. Split the evaluations across several requests.'],
+  ['414', 'The URL is too long (over about 32,000 characters). Split the evaluations across several requests.'],
   ['422', 'One or more evaluations are invalid. Nothing was saved; details lists every problem by position (index starts at 0).'],
   ['503', 'Server setup problem: the database connection is not configured or unreachable.'],
 ];
@@ -60,8 +66,19 @@ export default function ApiSetupPage() {
   const apiBase = (import.meta.env.VITE_PUBLIC_API_URL || window.location.origin).replace(/\/+$/, '');
   const endpoint = `${apiBase}/api/evaluations`;
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(apiBase);
-  const curl = `curl -X GET "${endpoint}" \\
-  -d '${EXAMPLE_BODY.replace(/\s*\n\s*/g, ' ')}'`;
+  const compactJson = JSON.stringify(JSON.parse(EXAMPLE_BODY));
+  const exampleUrl = `${endpoint}?data=${encodeURIComponent(compactJson)}`;
+  const jsSnippet = `const payload = {
+  evaluations: [
+    { studentName: "Aarav Sharma", testDate: "2026-10-05", percentage: 82.5, testName: "Unit Test 4" },
+  ],
+};
+const url = "${endpoint}?data=" + encodeURIComponent(JSON.stringify(payload));
+const result = await fetch(url).then((res) => res.json());`;
+  const curlQuery = `curl -G "${endpoint}" \\
+  --data-urlencode 'data=${compactJson}'`;
+  const curlBody = `curl -X GET "${endpoint}" \\
+  -d '${compactJson}'`;
 
   return (
     <>
@@ -78,16 +95,20 @@ export default function ApiSetupPage() {
         <h2>Endpoint</h2>
         <dl className="kv">
           <dt>Method</dt>
-          <dd><code>GET</code> <span className="muted small">(POST also works, for tools that can’t send a body with GET)</span></dd>
+          <dd><code>GET</code></dd>
           <dt>URL</dt>
           <dd><CopyBlock text={endpoint} /></dd>
+          <dt>Query parameter</dt>
+          <dd>
+            <code>data</code>: the evaluations JSON (below), URL-encoded, e.g. with{' '}
+            <code>encodeURIComponent(JSON.stringify(payload))</code>
+          </dd>
           <dt>Headers</dt>
           <dd>None needed</dd>
-          <dt>Query parameters</dt>
-          <dd>None</dd>
-          <dt>Body</dt>
-          <dd>The evaluations as JSON (below)</dd>
         </dl>
+        <h3>Example request URL</h3>
+        <CopyBlock text={exampleUrl} />
+        <p className="muted small">{URL_LIMIT_NOTE}</p>
         {isLocal && (
           <p className="hint small">
             This is a local address. An external application on another machine can’t reach it;
@@ -97,10 +118,10 @@ export default function ApiSetupPage() {
       </section>
 
       <section className="card">
-        <h2>Request body</h2>
+        <h2>The evaluations JSON</h2>
         <p className="muted small">
-          Send all students’ results in one request: a JSON object with an <code>evaluations</code> array
-          (a bare JSON array also works). Up to 10,000 evaluations per request.
+          A JSON object with an <code>evaluations</code> array (a bare JSON array also works). This is
+          the value of the <code>data</code> parameter, before URL-encoding.
         </p>
         <CopyBlock text={EXAMPLE_BODY} />
         <div className="table-wrap">
@@ -143,8 +164,19 @@ export default function ApiSetupPage() {
           <li><strong>No key.</strong> Anyone who knows this URL can send results, so share it only with the external application.</li>
           <li>The summary page picks up new results within 30 seconds.</li>
         </ul>
+        <h3>Calling it from JavaScript</h3>
+        <CopyBlock text={jsSnippet} />
         <h3>Test from a terminal</h3>
-        <CopyBlock text={curl} />
+        <CopyBlock text={curlQuery} />
+      </section>
+
+      <section className="card">
+        <h2>Alternative: JSON in the request body</h2>
+        <p className="muted small">
+          For large batches, leave out <code>data</code> and send the same JSON as the body of a GET
+          or POST request to the same URL. Bodies can be up to 4 MB (about 10,000 evaluations).
+        </p>
+        <CopyBlock text={curlBody} />
       </section>
     </>
   );

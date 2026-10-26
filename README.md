@@ -31,12 +31,21 @@ npm start          # open http://localhost:5000
 
 ## The API
 
-`GET https://course-evaluator-back-end.vercel.app/api/evaluations`
+`GET https://course-evaluator-back-end.vercel.app/api/evaluations?data=<URL-encoded JSON>`
 
-No headers and no query parameters. The evaluations go in the request body as JSON.
-`POST` to the same URL works the same way, for tools that can't attach a body to a GET.
+No headers needed. Put the evaluations JSON in the `data` query parameter, URL-encoded:
 
-Body: all students' results in one request (a bare JSON array is also accepted):
+```js
+const url = 'https://course-evaluator-back-end.vercel.app/api/evaluations?data=' +
+  encodeURIComponent(JSON.stringify(payload));
+const result = await fetch(url).then((res) => res.json());
+```
+
+Vercel limits URLs to 32,768 characters, which is roughly 200 evaluations per request.
+For bigger batches, split them, or leave out `data` and send the same JSON as the body of
+a GET or POST request to the same URL (up to 4 MB, about 10,000 evaluations).
+
+The JSON (a bare JSON array is also accepted):
 
 ```json
 {
@@ -64,16 +73,15 @@ Response `200`:
   sending it again updates the percentage instead of duplicating it.
 - **All or nothing.** If any record is invalid the API returns `422`, saves nothing,
   and lists every problem with its position (`index`, from 0) and field.
-- Other errors: `400` no body or invalid JSON, `413` body over 4 MB,
-  `503` database not configured or unreachable.
-- Up to 10,000 evaluations per request.
+- Other errors: `400` no data or invalid JSON (check it is URL-encoded), `413` body over
+  4 MB, `414` URL too long, `503` database not configured or unreachable.
 - There is no key, so anyone who knows the URL can send results.
 
 Try it from a terminal:
 
 ```bash
-curl -X GET "https://course-evaluator-back-end.vercel.app/api/evaluations" \
-  -d '{"evaluations":[{"studentName":"Aarav Sharma","testDate":"2026-10-05","percentage":82.5}]}'
+curl -G "https://course-evaluator-back-end.vercel.app/api/evaluations" \
+  --data-urlencode 'data={"evaluations":[{"studentName":"Aarav Sharma","testDate":"2026-10-05","percentage":82.5}]}'
 ```
 
 The **API setup** page in the app shows the same information with copy buttons.
