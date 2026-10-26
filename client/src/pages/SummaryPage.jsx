@@ -149,7 +149,7 @@ export default function SummaryPage() {
 
           <section className={`card table-card${loading ? ' is-refreshing' : ''}`}>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table summary-table">
                 <thead>
                   <tr>
                     <th>Student</th>
@@ -178,8 +178,8 @@ export default function SummaryPage() {
                     const open = expanded.has(s.key);
                     return (
                       <Fragment key={s.key}>
-                        <tr>
-                          <td>
+                        <tr className="student-row">
+                          <td className="name-cell">
                             <button
                               className="disclosure"
                               aria-expanded={open}
@@ -190,11 +190,11 @@ export default function SummaryPage() {
                               {s.studentName}
                             </button>
                           </td>
-                          <td className="num">{s.count}</td>
-                          <td className="num strong">{formatPercent(s.latest)}</td>
-                          <td className="num"><Change value={s.change} /></td>
-                          <td className="num">{formatPercent(s.average)}</td>
-                          <td className="num">{formatPercent(s.best)}</td>
+                          <td className="num" data-label="Tests">{s.count}</td>
+                          <td className="num strong" data-label="Latest">{formatPercent(s.latest)}</td>
+                          <td className="num" data-label="Change"><Change value={s.change} /></td>
+                          <td className="num" data-label="Average">{formatPercent(s.average)}</td>
+                          <td className="num" data-label="Best">{formatPercent(s.best)}</td>
                           <td className="trend-col">
                             <TrendChart tests={s.tests} domain={dateRange} studentName={s.studentName} />
                           </td>
@@ -212,8 +212,9 @@ export default function SummaryPage() {
             </div>
           </section>
           <p className="muted small">
-            Hover or tap a graph to read each score, or open a student to see all of them.
-            The page refreshes every 30 seconds.
+            All graphs share one timeline ({formatDate(dateRange.from)} to {formatDate(dateRange.to)}) and
+            a 0–100% scale. Hover or tap a graph to read each score, or open a student to see all
+            of them. The page refreshes every 30 seconds.
           </p>
         </>
       )}

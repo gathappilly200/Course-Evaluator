@@ -39,6 +39,11 @@ app.use((err, req, res, next) => {
 });
 
 await connectDb();
-app.listen(config.port, '0.0.0.0', () => {
+app.listen(config.port, '0.0.0.0', (err) => {
+  // Express 5 reports startup errors (e.g. port already in use) here instead of throwing.
+  if (err) {
+    console.error(`Could not start on port ${config.port}: ${err.message}`);
+    process.exit(1);
+  }
   console.log(`API server listening on http://localhost:${config.port}`);
 });

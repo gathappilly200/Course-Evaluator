@@ -20,14 +20,34 @@ router.post('/', requireApiKey, async (req, res) => {
     return res.status(422).json({ error: 'Validation failed. Nothing was saved.', details: errors });
   }
 
-  const result = await Evaluation.bulkWrite(
-    records.map((r) => ({
-      updateOne: {
-        filter: { studentKey: r.studentKey, testDate: r.testDate, testName: r.testName },
-        update: { $set: { studentName: r.studentName, percentage: r.percentage } },
-        upsert: true,
-      },
-    })),
+  // Native pipeline update so updatedAt only moves when the name or score
+  // actually changes; that keeps "unchanged" accurate when data is resent.
+  // $literal stops a value such as "$name" being read as a field reference.
+  const result = await Evaluation.collection.bulkWrite(
+    records.map((r) => {
+      const same = {
+        $and: [
+          { $eq: ['$studentName', { $literal: r.studentName }] },
+          { $eq: ['$percentage', { $literal: r.percentage }] },
+        ],
+      };
+      return {
+        updateOne: {
+          filter: { studentKey: r.studentKey, testDate: r.testDate, testName: r.testName },
+          update: [
+            {
+              $set: {
+                createdAt: { $ifNull: ['$createdAt', '$$NOW'] },
+                updatedAt: { $cond: [same, '$updatedAt', '$$NOW'] },
+                studentName: { $literal: r.studentName },
+                percentage: { $literal: r.percentage },
+              },
+            },
+          ],
+          upsert: true,
+        },
+      };
+    }),
     { ordered: true }
   );
 
