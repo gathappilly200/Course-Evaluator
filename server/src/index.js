@@ -14,7 +14,10 @@ if (process.env.VERCEL) {
   app.get('/', (req, res) => {
     res.json({
       name: 'Student Evaluations API',
-      endpoints: { health: 'GET /api/health', submitEvaluations: 'POST /api/evaluations' },
+      endpoints: {
+        health: 'GET /api/health',
+        submitEvaluations: 'GET /api/evaluations with a JSON body (POST also accepted)',
+      },
     });
   });
 }
@@ -28,8 +31,8 @@ app.get('/api/health', async (req, res) => {
     console.error('Health check: database connection failed:', err.message);
     database = config.mongoUri ? 'unreachable' : 'MONGODB_URI not set';
   }
-  const ok = database === 'connected' && Boolean(config.apiKey);
-  res.status(ok ? 200 : 503).json({ ok, database, apiKeyConfigured: Boolean(config.apiKey) });
+  const ok = database === 'connected';
+  res.status(ok ? 200 : 503).json({ ok, database });
 });
 app.use('/api/evaluations', evaluationsRouter);
 app.use('/api/students', requireDb, studentsRouter);

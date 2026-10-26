@@ -12,7 +12,6 @@ latest, average and best score, plus a line graph of their scores across tests.
 | Variable | What it is |
 |---|---|
 | `MONGODB_URI` | MongoDB connection string. Data goes in the `student_evaluations` database (override with `MONGODB_DB`). |
-| `EVALUATIONS_API_KEY` | Secret the external application must send. A random one was generated for you. |
 | `PORT` | API server port (default 5000). |
 
 ## Run
@@ -32,14 +31,10 @@ npm start          # open http://localhost:5000
 
 ## The API
 
-`POST /api/evaluations`
+`GET https://course-evaluator-back-end.vercel.app/api/evaluations`
 
-Headers:
-
-```
-Content-Type: application/json
-x-api-key: <EVALUATIONS_API_KEY>        (or: Authorization: Bearer <key>)
-```
+No headers and no query parameters. The evaluations go in the request body as JSON.
+`POST` to the same URL works the same way, for tools that can't attach a body to a GET.
 
 Body: all students' results in one request (a bare JSON array is also accepted):
 
@@ -69,9 +64,17 @@ Response `200`:
   sending it again updates the percentage instead of duplicating it.
 - **All or nothing.** If any record is invalid the API returns `422`, saves nothing,
   and lists every problem with its position (`index`, from 0) and field.
-- Other errors: `400` invalid JSON, `401` wrong/missing key, `413` body over 5 MB,
-  `415` missing `Content-Type: application/json`, `503` no key configured on the server.
+- Other errors: `400` no body or invalid JSON, `413` body over 4 MB,
+  `503` database not configured or unreachable.
 - Up to 10,000 evaluations per request.
+- There is no key, so anyone who knows the URL can send results.
+
+Try it from a terminal:
+
+```bash
+curl -X GET "https://course-evaluator-back-end.vercel.app/api/evaluations" \
+  -d '{"evaluations":[{"studentName":"Aarav Sharma","testDate":"2026-10-05","percentage":82.5}]}'
+```
 
 The **API setup** page in the app shows the same information with copy buttons.
 
@@ -84,14 +87,12 @@ Two Vercel projects from this repository:
 | Back end | `server` | https://course-evaluator-back-end.vercel.app |
 | Front end | `client` | its own Vercel URL |
 
-**Back end**: set these in Vercel → Project → Settings → Environment Variables, then redeploy:
-
-- `MONGODB_URI`: same value as in your local `.env`
-- `EVALUATIONS_API_KEY`: the key the external application will send
+**Back end**: set `MONGODB_URI` (same value as in your local `.env`) in Vercel → Project →
+Settings → Environment Variables, then redeploy.
 
 In MongoDB Atlas → Network Access, allow `0.0.0.0/0`, because Vercel's IP addresses change.
 Check the deployment at `https://course-evaluator-back-end.vercel.app/api/health`. It returns
-`{"ok":true,...}` when the database and key are configured.
+`{"ok":true,"database":"connected"}` when the database is reachable.
 
 **Front end**: `client/vercel.json` forwards `/api/*` to the back end, so no extra settings
 are needed. `client/.env.production` holds the back-end URL shown on the API setup page.
@@ -100,6 +101,6 @@ The external application calls `https://course-evaluator-back-end.vercel.app/api
 
 ## Security note
 
-Only the ingest API is protected (by the API key). The summary page has no login, so
-anyone who can open the app's address can see the results. Add authentication before
-putting it on the public internet.
+Nothing is password-protected. Anyone who knows the API URL can send or overwrite results,
+and anyone who can open the summary page can see them. Add a key or login if that becomes
+a concern.

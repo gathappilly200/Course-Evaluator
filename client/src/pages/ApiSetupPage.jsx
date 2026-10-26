@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { api } from '../api.js';
+import { useState } from 'react';
 
 const EXAMPLE_BODY = `{
   "evaluations": [
@@ -28,12 +27,10 @@ const FIELDS = [
 
 const STATUS_CODES = [
   ['200', 'Saved. The response counts new, updated and unchanged results.'],
-  ['400', 'The body is not valid JSON.'],
-  ['401', 'The API key is missing or wrong.'],
+  ['400', 'No body was received, or the body is not valid JSON.'],
   ['413', 'The body is larger than 4 MB. Split the evaluations across several requests.'],
-  ['415', 'The Content-Type header is not application/json.'],
   ['422', 'One or more evaluations are invalid. Nothing was saved; details lists every problem by position (index starts at 0).'],
-  ['503', 'Server setup problem: the API key or database connection is not configured.'],
+  ['503', 'Server setup problem: the database connection is not configured or unreachable.'],
 ];
 
 function CopyBlock({ text }) {
@@ -60,18 +57,10 @@ function CopyBlock({ text }) {
 }
 
 export default function ApiSetupPage() {
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    api.getApiStatus().then(setStatus).catch(() => setStatus({ error: true }));
-  }, []);
-
   const apiBase = (import.meta.env.VITE_PUBLIC_API_URL || window.location.origin).replace(/\/+$/, '');
   const endpoint = `${apiBase}/api/evaluations`;
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(apiBase);
-  const curl = `curl -X POST "${endpoint}" \\
-  -H "Content-Type: application/json" \\
-  -H "x-api-key: YOUR_API_KEY" \\
+  const curl = `curl -X GET "${endpoint}" \\
   -d '${EXAMPLE_BODY.replace(/\s*\n\s*/g, ' ')}'`;
 
   return (
@@ -89,26 +78,15 @@ export default function ApiSetupPage() {
         <h2>Endpoint</h2>
         <dl className="kv">
           <dt>Method</dt>
-          <dd><code>POST</code></dd>
+          <dd><code>GET</code> <span className="muted small">(POST also works, for tools that can’t send a body with GET)</span></dd>
           <dt>URL</dt>
           <dd><CopyBlock text={endpoint} /></dd>
           <dt>Headers</dt>
-          <dd>
-            <code>Content-Type: application/json</code><br />
-            <code>x-api-key: YOUR_API_KEY</code>
-            <span className="muted small"> (or <code>Authorization: Bearer YOUR_API_KEY</code>)</span>
-          </dd>
-          <dt>API key</dt>
-          <dd>
-            {status === null && <span className="muted">Checking...</span>}
-            {status?.apiKeyConfigured && (
-              <span><span className="badge badge-ok">Configured</span> Copy the value of <code>EVALUATIONS_API_KEY</code> from the server’s <code>.env</code> file. It is never shown in the browser.</span>
-            )}
-            {status && !status.apiKeyConfigured && !status.error && (
-              <span className="badge badge-bad">Not configured: set EVALUATIONS_API_KEY in .env and restart the server</span>
-            )}
-            {status?.error && <span className="badge badge-bad">Could not reach the server</span>}
-          </dd>
+          <dd>None needed</dd>
+          <dt>Query parameters</dt>
+          <dd>None</dd>
+          <dt>Body</dt>
+          <dd>The evaluations as JSON (below)</dd>
         </dl>
         {isLocal && (
           <p className="hint small">
@@ -162,6 +140,7 @@ export default function ApiSetupPage() {
         <ul className="notes">
           <li><strong>Safe to resend.</strong> A result is identified by student name + test date + test name. Sending it again updates the percentage instead of creating a duplicate.</li>
           <li><strong>All or nothing.</strong> If any evaluation in a request is invalid, none are saved, so fix the listed problems and send the whole request again.</li>
+          <li><strong>No key.</strong> Anyone who knows this URL can send results, so share it only with the external application.</li>
           <li>The summary page picks up new results within 30 seconds.</li>
         </ul>
         <h3>Test from a terminal</h3>

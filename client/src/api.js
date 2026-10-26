@@ -7,7 +7,6 @@ async function request(path) {
 
 export const api = {
   getStudents: () => request('/students'),
-  getApiStatus: () => request('/evaluations/status'),
 };
 
 export function formatDate(isoDay, opts = { day: 'numeric', month: 'short', year: 'numeric' }) {

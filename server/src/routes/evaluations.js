@@ -1,21 +1,32 @@
-import { Router } from 'express';
-import { config } from '../config.js';
+import express, { Router } from 'express';
 import { requireDb } from '../db.js';
-import { requireApiKey } from '../middleware/requireApiKey.js';
 import Evaluation from '../models/Evaluation.js';
 import { validateEvaluations } from '../validation.js';
 
 const router = Router();
 
+// The external app sends no headers, so read the body as JSON whatever its
+// Content-Type (or lack of one).
+const readJsonBody = express.json({ type: () => true, limit: '4mb' });
+
+const EXAMPLE = {
+  evaluations: [
+    { studentName: 'Aarav Sharma', testDate: '2026-10-05', percentage: 82.5, testName: 'Unit Test 4' },
+  ],
+};
+
 /**
- * Called by the external application.
- * Body: { "evaluations": [ { "studentName", "testDate", "percentage", "testName"? } ] }
- * All-or-nothing: if any record is invalid, nothing is saved and every problem is listed.
+ * Called by the external application: GET (or POST) with a JSON body
+ * { "evaluations": [ { "studentName", "testDate", "percentage", "testName"? } ] }.
+ * No headers or query parameters. All-or-nothing: if any record is invalid,
+ * nothing is saved and every problem is listed.
  */
-// Key check first, so unauthenticated calls never touch the database.
-router.post('/', requireApiKey, requireDb, async (req, res) => {
-  if (!req.is('application/json')) {
-    return res.status(415).json({ error: 'Send the body as JSON with the header Content-Type: application/json.' });
+async function saveEvaluations(req, res) {
+  if (req.body === undefined) {
+    return res.status(400).json({
+      error: 'No JSON body received. Send the evaluations as JSON in the request body.',
+      example: EXAMPLE,
+    });
   }
   const { records, errors } = validateEvaluations(req.body);
   if (errors) {
@@ -59,11 +70,10 @@ router.post('/', requireApiKey, requireDb, async (req, res) => {
     updated: result.modifiedCount,
     unchanged: result.matchedCount - result.modifiedCount,
   });
-});
+}
 
-// Lets the setup page show whether the API key is configured, without revealing it.
-router.get('/status', (req, res) => {
-  res.json({ apiKeyConfigured: Boolean(config.apiKey) });
-});
+router.get('/', readJsonBody, requireDb, saveEvaluations);
+// Same thing for tools that can't attach a body to a GET request.
+router.post('/', readJsonBody, requireDb, saveEvaluations);
 
 export default router;
