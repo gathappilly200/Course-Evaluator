@@ -75,13 +75,28 @@ Response `200`:
 
 The **API setup** page in the app shows the same information with copy buttons.
 
-### Reaching the API from the external application
+## Deployment (Vercel)
 
-- Same computer: `http://localhost:5000/api/evaluations`
-- Same network: `http://<this-computer's-IP>:5000/api/evaluations` (allow Node.js through
-  the Windows firewall)
-- A cloud service: deploy this app to a host with a public HTTPS address (for example
-  Render or Railway) and set the same `.env` values there.
+Two Vercel projects from this repository:
+
+| Project | Root Directory | URL |
+|---|---|---|
+| Back end | `server` | https://course-evaluator-back-end.vercel.app |
+| Front end | `client` | its own Vercel URL |
+
+**Back end**: set these in Vercel → Project → Settings → Environment Variables, then redeploy:
+
+- `MONGODB_URI`: same value as in your local `.env`
+- `EVALUATIONS_API_KEY`: the key the external application will send
+
+In MongoDB Atlas → Network Access, allow `0.0.0.0/0`, because Vercel's IP addresses change.
+Check the deployment at `https://course-evaluator-back-end.vercel.app/api/health`. It returns
+`{"ok":true,...}` when the database and key are configured.
+
+**Front end**: `client/vercel.json` forwards `/api/*` to the back end, so no extra settings
+are needed. `client/.env.production` holds the back-end URL shown on the API setup page.
+
+The external application calls `https://course-evaluator-back-end.vercel.app/api/evaluations`.
 
 ## Security note
 

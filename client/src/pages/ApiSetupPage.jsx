@@ -30,10 +30,10 @@ const STATUS_CODES = [
   ['200', 'Saved. The response counts new, updated and unchanged results.'],
   ['400', 'The body is not valid JSON.'],
   ['401', 'The API key is missing or wrong.'],
-  ['413', 'The body is larger than 5 MB.'],
+  ['413', 'The body is larger than 4 MB. Split the evaluations across several requests.'],
   ['415', 'The Content-Type header is not application/json.'],
   ['422', 'One or more evaluations are invalid. Nothing was saved; details lists every problem by position (index starts at 0).'],
-  ['503', 'The server has no API key configured.'],
+  ['503', 'Server setup problem: the API key or database connection is not configured.'],
 ];
 
 function CopyBlock({ text }) {
@@ -66,7 +66,9 @@ export default function ApiSetupPage() {
     api.getApiStatus().then(setStatus).catch(() => setStatus({ error: true }));
   }, []);
 
-  const endpoint = `${window.location.origin}/api/evaluations`;
+  const apiBase = (import.meta.env.VITE_PUBLIC_API_URL || window.location.origin).replace(/\/+$/, '');
+  const endpoint = `${apiBase}/api/evaluations`;
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(apiBase);
   const curl = `curl -X POST "${endpoint}" \\
   -H "Content-Type: application/json" \\
   -H "x-api-key: YOUR_API_KEY" \\
@@ -108,11 +110,12 @@ export default function ApiSetupPage() {
             {status?.error && <span className="badge badge-bad">Could not reach the server</span>}
           </dd>
         </dl>
-        <p className="hint small">
-          The URL above is how this browser reaches the app. Your external application needs an
-          address it can reach: the same computer can use <code>http://localhost:5000/api/evaluations</code>;
-          a cloud service needs this app deployed to a public HTTPS address.
-        </p>
+        {isLocal && (
+          <p className="hint small">
+            This is a local address. An external application on another machine can’t reach it;
+            use the deployed back end’s URL instead.
+          </p>
+        )}
       </section>
 
       <section className="card">

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config.js';
+import { requireDb } from '../db.js';
 import { requireApiKey } from '../middleware/requireApiKey.js';
 import Evaluation from '../models/Evaluation.js';
 import { validateEvaluations } from '../validation.js';
@@ -11,7 +12,8 @@ const router = Router();
  * Body: { "evaluations": [ { "studentName", "testDate", "percentage", "testName"? } ] }
  * All-or-nothing: if any record is invalid, nothing is saved and every problem is listed.
  */
-router.post('/', requireApiKey, async (req, res) => {
+// Key check first, so unauthenticated calls never touch the database.
+router.post('/', requireApiKey, requireDb, async (req, res) => {
   if (!req.is('application/json')) {
     return res.status(415).json({ error: 'Send the body as JSON with the header Content-Type: application/json.' });
   }
